@@ -20,13 +20,17 @@ class ViewController: UIViewController {
     }()
     
     var peripherals : Set<CBPeripheral> = []
-    
+    var characteristic : CBCharacteristic?
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
         
         _ = centralManager
         
+    }
+    
+    @IBAction func fetchItHandler() {
+        peripherals.first?.readValue(for: characteristic!)
     }
     
 }
@@ -43,30 +47,67 @@ extension ViewController: CBCentralManagerDelegate{
     }
     
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String : Any], rssi RSSI: NSNumber) {
+        print("discoveredPeripheral: \(peripheral)")
+
         peripherals.insert(peripheral)
         central.connect(peripheral, options: nil)
     }
     
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
+        print("connected: \(peripheral)")
+        
         peripheral.delegate = self
         peripheral.discoverServices([BLEConstant.serviceUUID])
+    }
+    
+    func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
+        print("disconnected: \(peripheral)")
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(2)) {
+            central.connect(peripheral, options: nil)
+        }
     }
 }
 
 extension ViewController: CBPeripheralDelegate{
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
+        print("discoverServices: \(peripheral)")
+        
+        if let error = error {
+            print("discoverServicesError: \(error)")
+            return
+        }
+
         peripheral.services?.forEach{ service in
             peripheral.discoverCharacteristics([BLEConstant.characteristicUUID], for: service)
         }
     }
     
     func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
+        print("discoverCharacteristics: \(peripheral)")
+        
+        if let error = error {
+            print("discoverCharacteristicsError: \(error)")
+            return
+        }
+
         service.characteristics?.forEach{ characteristic in
+            
+            // FIXME: dirty code
+            self.characteristic = characteristic
+            
             peripheral.readValue(for: characteristic)
         }
     }
     
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
+        print("updateValue: \(peripheral)")
+        
+        if let error = error {
+            print("updateValueError: \(error)")
+            return
+        }
+
         if let value = characteristic.value {
             if let valueString = String(data: value, encoding: .utf8) {
                 print("data is \(valueString)")
