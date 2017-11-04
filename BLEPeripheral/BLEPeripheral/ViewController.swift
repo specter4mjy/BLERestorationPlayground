@@ -8,6 +8,7 @@
 
 import UIKit
 import CoreBluetooth
+import os.log
 
 struct BLEConstant{
     static let serviceUUID = CBUUID(string: "CD5F2B78-682D-4FC5-8BE0-4E0826CCCA5F")
@@ -53,8 +54,7 @@ class PeripheralManagerDelegate : NSObject{
 
 extension PeripheralManagerDelegate: CBPeripheralManagerDelegate {
     func peripheralManager(_ peripheral: CBPeripheralManager, willRestoreState dict: [String : Any]) {
-        peripheral.add(service)
-
+        
         print("will restore")
     }
     
@@ -63,21 +63,28 @@ extension PeripheralManagerDelegate: CBPeripheralManagerDelegate {
         case .poweredOn:
             if peripheral.isAdvertising {
                 peripheral.stopAdvertising()
+                print("stop advertising...")
             }
             
+            
             // TODO: may this can be improved
+            print("remove advertising...")
             peripheral.removeAllServices()
             peripheral.add(service)
+            
         default:
             peripheral.stopAdvertising()
         }
     }
     
     func peripheralManager(_ peripheral: CBPeripheralManager, didAdd service: CBService, error: Error?) {
+
         if let error = error {
             print("didAddService: \(error)")
             return
         }
+        
+        print("add service...")
         
         peripheral.startAdvertising([CBAdvertisementDataServiceUUIDsKey: [BLEConstant.serviceUUID]])
     }
@@ -93,7 +100,7 @@ extension PeripheralManagerDelegate: CBPeripheralManagerDelegate {
     func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveRead request: CBATTRequest) {
         print("receive read request...")
 
-        request.value = "tset".data(using: .utf8)
+        request.value = Date().description.data(using: .utf8)
         peripheral.respond(to: request, withResult: .success)
     }
     

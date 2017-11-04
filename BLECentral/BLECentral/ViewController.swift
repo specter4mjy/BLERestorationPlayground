@@ -30,7 +30,16 @@ class ViewController: UIViewController {
     }
     
     @IBAction func fetchItHandler() {
-        peripherals.first?.readValue(for: characteristic!)
+        if let peripheral = peripherals.first {
+            switch peripheral.state{
+            case .connected:
+                peripherals.first?.readValue(for: characteristic!)
+            case .disconnected:
+                centralManager.connect(peripheral, options: nil)
+            default:
+                break
+            }
+        }
     }
     
 }
@@ -63,8 +72,8 @@ extension ViewController: CBCentralManagerDelegate{
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         print("disconnected: \(peripheral)")
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(2)) {
-            central.connect(peripheral, options: nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(100)) {
+            self.centralManager.connect(peripheral, options: nil)
         }
     }
 }
@@ -80,6 +89,13 @@ extension ViewController: CBPeripheralDelegate{
 
         peripheral.services?.forEach{ service in
             peripheral.discoverCharacteristics([BLEConstant.characteristicUUID], for: service)
+        }
+    }
+    
+    func peripheral(_ peripheral: CBPeripheral, didModifyServices invalidatedServices: [CBService]) {
+        print("ModifyServices: \(invalidatedServices)")
+        if invalidatedServices.count > 0 {
+            centralManager.cancelPeripheralConnection(peripheral)
         }
     }
     
@@ -101,10 +117,11 @@ extension ViewController: CBPeripheralDelegate{
     }
     
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
-        print("updateValue: \(peripheral)")
-        
         if let error = error {
             print("updateValueError: \(error)")
+            if error.localizedDescription == "The attribute could not be found." {
+                centralManager.cancelPeripheralConnection(peripheral)
+            }
             return
         }
 
